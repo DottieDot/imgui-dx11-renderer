@@ -8,9 +8,10 @@ use alloc::vec::Vec;
 use core::ptr::null;
 use core::{mem, slice};
 
-use imgui::internal::RawWrapper;
+use imgui::internal::{RawCast, RawWrapper};
 use imgui::{
-    BackendFlags, DrawCmd, DrawCmdParams, DrawData, DrawIdx, DrawVert, TextureId, Textures,
+    BackendFlags, DrawCmd, DrawCmdParams, DrawData, DrawIdx, DrawVert, FontAtlas, SharedFontAtlas,
+    TextureId, Textures,
 };
 use windows::core::*;
 use windows::Win32::Foundation::RECT;
@@ -49,6 +50,13 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    /// Sets the renderer name and backend flags for an ImGui context.
+    pub fn set_imgui_context_flags(im_ctx: &mut imgui::Context) {
+        im_ctx.io_mut().backend_flags |= BackendFlags::RENDERER_HAS_VTX_OFFSET;
+        let renderer_name = concat!("imgui_dx11_renderer@", env!("CARGO_PKG_VERSION"));
+        im_ctx.set_renderer_name(Some(renderer_name.parse().unwrap()));
+    }
+
     /// Creates a new renderer for the given [`ID3D11Device`].
     ///
     /// # Safety
@@ -56,21 +64,20 @@ impl Renderer {
     /// `device` must be a valid [`ID3D11Device`] pointer.
     ///
     /// [`ID3D11Device`]: https://docs.rs/winapi/0.3/x86_64-pc-windows-msvc/winapi/um/d3d11/struct.ID3D11Device.html
-    pub unsafe fn new(im_ctx: &mut imgui::Context, device: &ID3D11Device) -> Result<Self> {
+    pub unsafe fn new(mut fonts: SharedFontAtlas, device: &ID3D11Device) -> Result<Self> {
         let (vertex_shader, input_layout, constant_buffer) = Self::create_vertex_shader(device)?;
         let pixel_shader = Self::create_pixel_shader(device)?;
         let (blend_state, rasterizer_state, depth_stencil_state) =
             Self::create_device_objects(device)?;
-        let (font_resource_view, font_sampler) = Self::create_font_texture(im_ctx.fonts(), device)?;
+        let (font_resource_view, font_sampler) = Self::create_font_texture(
+            unsafe { FontAtlas::from_raw_mut(&mut *fonts.as_ptr_mut()) },
+            device,
+        )?;
         let vertex_buffer = Self::create_vertex_buffer(device, 0)?;
         let index_buffer = Self::create_index_buffer(device, 0)?;
 
         let mut context = None;
         device.GetImmediateContext(&mut context);
-
-        im_ctx.io_mut().backend_flags |= BackendFlags::RENDERER_HAS_VTX_OFFSET;
-        let renderer_name = concat!("imgui_dx11_renderer@", env!("CARGO_PKG_VERSION"));
-        im_ctx.set_renderer_name(Some(renderer_name.parse().unwrap()));
 
         Ok(Renderer {
             device: device.clone(),
@@ -297,7 +304,7 @@ impl Renderer {
     }
 
     unsafe fn create_font_texture(
-        mut fonts: imgui::FontAtlasRefMut<'_>,
+        fonts: &mut FontAtlas,
         device: &ID3D11Device,
     ) -> Result<(ID3D11ShaderResourceView, ID3D11SamplerState)> {
         let fa_tex = fonts.build_rgba32_texture();
@@ -342,7 +349,7 @@ impl Renderer {
             MaxLOD: 0.0,
             ..Default::default()
         };
-        let font_sampler = device.CreateSamplerState(&desc)?;
+        let font_sampler: ID3D11SamplerState = device.CreateSamplerState(&desc)?;
         Ok((font_texture_view, font_sampler))
     }
 
