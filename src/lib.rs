@@ -64,7 +64,7 @@ impl Renderer {
     /// `device` must be a valid [`ID3D11Device`] pointer.
     ///
     /// [`ID3D11Device`]: https://docs.rs/winapi/0.3/x86_64-pc-windows-msvc/winapi/um/d3d11/struct.ID3D11Device.html
-    pub unsafe fn new(mut fonts: SharedFontAtlas, device: &ID3D11Device) -> Result<Self> {
+    pub unsafe fn new(fonts: &mut SharedFontAtlas, device: &ID3D11Device) -> Result<Self> {
         let (vertex_shader, input_layout, constant_buffer) = Self::create_vertex_shader(device)?;
         let pixel_shader = Self::create_pixel_shader(device)?;
         let (blend_state, rasterizer_state, depth_stencil_state) =
