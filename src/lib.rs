@@ -508,8 +508,8 @@ impl StateBackup {
         let mut result = Self::default();
 
         let ctx = context.as_ref().unwrap();
-        ctx.RSGetScissorRects(&mut 16, &mut result.scissor_rects);
-        ctx.RSGetViewports(&mut 16, &mut result.viewports);
+        ctx.RSGetScissorRects(&mut 1, &mut result.scissor_rects);
+        ctx.RSGetViewports(&mut 1, &mut result.viewports);
         ctx.RSGetState(&mut result.rasterizer_state);
         ctx.OMGetBlendState(
             &mut result.blend_state,
